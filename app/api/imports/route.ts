@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { parseLedgerWorkbook, type ParsedLedger } from "@/lib/ledger/parse-xlsx";
@@ -6,11 +6,13 @@ import { parseDocxDocument } from "@/lib/ledger/parse-docx";
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
+    let userId: string | null = null;
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) userId = user.id;
+    } catch {
+      // Guest demo upload
     }
 
     const contentType = request.headers.get("content-type") || "";
@@ -90,9 +92,13 @@ export async function POST(request: Request) {
 
     // Store in Supabase Storage with Admin privileges
     const storagePath = `ledger/${Date.now()}_${filename}`;
-    await admin.storage
-      .from("ledger-imports")
-      .upload(storagePath, buffer, { upsert: true });
+    try {
+      await admin.storage
+        .from("ledger-imports")
+        .upload(storagePath, buffer, { upsert: true });
+    } catch {
+      // Non-fatal if storage bucket is unavailable
+    }
 
     // Create ledger_import row
     const { data: importRow, error: insertError } = await admin
@@ -103,7 +109,7 @@ export async function POST(request: Request) {
         file_sha256: sha256,
         source_filename: filename,
         status: "parsing",
-        uploaded_by: user.id,
+        uploaded_by: userId,
       })
       .select()
       .single();
