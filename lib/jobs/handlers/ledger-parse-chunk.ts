@@ -41,7 +41,7 @@ export async function handleLedgerParseChunk(importId: string, cursor: number): 
       buffer = Buffer.from(arrayBuffer);
     } else {
       // Fallback: check local filesystem (e.g., test fixtures)
-      const localPath = resolve(process.cwd(), importRow.storage_path);
+      const localPath = resolve(/* turbopackIgnore: true */ process.cwd(), importRow.storage_path);
       if (existsSync(localPath)) {
         buffer = readFileSync(localPath);
       }
@@ -50,7 +50,7 @@ export async function handleLedgerParseChunk(importId: string, cursor: number): 
 
   // Fallback default test fixture if storage path couldn't be loaded
   if (!buffer) {
-    const defaultFixture = resolve(process.cwd(), "tests/fixtures/Olectra_Client_Ledger_Report.xlsx");
+    const defaultFixture = resolve(/* turbopackIgnore: true */ process.cwd(), "tests/fixtures/Olectra_Client_Ledger_Report.xlsx");
     if (existsSync(defaultFixture)) {
       buffer = readFileSync(defaultFixture);
     }
