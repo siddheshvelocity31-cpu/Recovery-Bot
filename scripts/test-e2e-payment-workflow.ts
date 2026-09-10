@@ -1,4 +1,4 @@
-﻿import { extractCommitmentFromText } from "../lib/replies/extract-commitment";
+import { extractCommitmentFromText } from "../lib/replies/extract-commitment";
 import { formatPaise } from "../lib/money";
 import { renderMessage } from "../lib/outreach/render";
 import { evaluateAllRules, type ClientForFlags, type OpenItemForFlags } from "../lib/flags/rules";

@@ -53,6 +53,8 @@ function statusBadge(status: string) {
 
 export default function ImportsPage() {
   const [imports, setImports] = useState<ImportRow[]>([]);
+  const [clients, setClients] = useState<Array<{ id: string; name: string; client_code: string }>>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
@@ -65,13 +67,20 @@ export default function ImportsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadImports = useCallback(async () => {
-    const { data, error: fetchError } = await getBrowserClient()
+    const client = getBrowserClient();
+    const { data, error: fetchError } = await client
       .from("ledger_import")
       .select("id, client_id, status, created_at, error_message, source_filename, row_count_imported, row_count_total")
       .order("created_at", { ascending: false });
     setLoaded(true);
     if (fetchError) setError(fetchError.message);
     else setImports((data as ImportRow[]) ?? []);
+
+    const { data: clientData } = await client
+      .from("client")
+      .select("id, name, client_code")
+      .order("name", { ascending: true });
+    if (clientData) setClients(clientData);
   }, []);
 
   useEffect(() => {
@@ -102,6 +111,9 @@ export default function ImportsPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      if (selectedClientId) {
+        formData.append("client_id", selectedClientId);
+      }
 
       setUploadProgress({ stage: "parsing", progress: 60, message: "Parsing statement data & extracting rows..." });
 
@@ -184,6 +196,27 @@ export default function ImportsPage() {
           </div>
         </div>
       )}
+
+      {/* Target Client Selector */}
+      <div className="mb-6 glass-strong rounded-sm p-4 animate-slide-up">
+        <label htmlFor="target-client-select" className="block text-body-sm text-secondary mb-2">
+          Select Target Client (Optional — auto-detected from statement header if unselected):
+        </label>
+        <select
+          id="target-client-select"
+          value={selectedClientId}
+          onChange={(e) => setSelectedClientId(e.target.value)}
+          className="w-full bg-white/5 border border-white/10 rounded-sm px-3 py-2 text-body text-primary focus:outline-none focus:border-primary/50"
+          disabled={isUploading}
+        >
+          <option value="" className="bg-neutral-900 text-white">Auto-detect from file header</option>
+          {clients.map((c) => (
+            <option key={c.id} value={c.id} className="bg-neutral-900 text-white">
+              {c.name} ({c.client_code})
+            </option>
+          ))}
+        </select>
+      </div>
 
       {/* Upload Zone */}
       <div className="mb-10 animate-slide-up">
