@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
@@ -8,10 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
+export const dynamic = "force-dynamic";
+
+function getBrowserClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://cipfkcsknxjemdmdkpyp.supabase.co";
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpcGZrY3NrbnhqZW1kbWRrcHlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5MTcwNDEsImV4cCI6MjEwMzQ5MzA0MX0.xAx-eX1P_DutARKi_fDy0XMhyhvN_gjpk4kJsb9yyc0";
+  return createBrowserClient(url, key);
+}
+
 
 interface ImportRow {
   id: string;
@@ -61,7 +65,7 @@ export default function ImportsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadImports = useCallback(async () => {
-    const { data, error: fetchError } = await supabase
+    const { data, error: fetchError } = await getBrowserClient()
       .from("ledger_import")
       .select("id, client_id, status, created_at, error_message, source_filename, row_count_imported, row_count_total")
       .order("created_at", { ascending: false });
