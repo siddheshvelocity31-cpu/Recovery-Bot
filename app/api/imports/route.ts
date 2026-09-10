@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
+import nodemailer from "nodemailer";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { parseLedgerWorkbook, type ParsedLedger } from "@/lib/ledger/parse-xlsx";
 import { parseDocxDocument } from "@/lib/ledger/parse-docx";
+import { formatPaise } from "@/lib/money";
+
 
 export async function POST(request: Request) {
   try {
@@ -172,6 +175,66 @@ export async function POST(request: Request) {
       { kind: "flags.evaluate", payload: { client_id: client.id } },
     ]);
 
+    // Dispatch real email if SMTP credentials are configured and there's an outstanding balance
+    let emailSent = false;
+    let emailMessageId: string | null = null;
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+
+    if (smtpUser && smtpPass && parsed.stated_closing_balance_paise > 0n) {
+      try {
+        const transporter = nodemailer.createTransport({
+          service: "gmail",
+          auth: { user: smtpUser, pass: smtpPass },
+        });
+        const info = await transporter.sendMail({
+          from: `"VSAR Recovery System" <${smtpUser}>`,
+          to: smtpUser,
+          subject: `Payment Reminder Notice - ${client.name} (${client.client_code})`,
+          text: [
+            `Dear Accounts Team,`,
+            ``,
+            `This is an automated payment reminder generated from your newly uploaded ledger file.`,
+            ``,
+            `CLIENT DETAILS:`,
+            `------------------------------------------------`,
+            `Client Name          : ${client.name}`,
+            `Client Code          : ${client.client_code}`,
+            `Total Outstanding   : ${formatPaise(parsed.stated_closing_balance_paise)}`,
+            `Total Statement Rows : ${parsed.entries.length}`,
+            `Status               : Outstanding Overdue Balance Detected`,
+            `------------------------------------------------`,
+            ``,
+            `Please review the client statement in your VSAR Recovery Dashboard.`,
+            ``,
+            `Best regards,`,
+            `Accounts Receivable Team`,
+            `VSAR Technologies`,
+          ].join("\n"),
+        });
+        emailSent = true;
+        emailMessageId = info.messageId;
+
+        // Also record this outreach row in database for Notifications tab
+        await admin.from("outreach").insert({
+          client_id: client.id,
+          channel: "email",
+          cadence_step_number: 1,
+          template_key: "payment_reminder",
+          persona_tone: "firm",
+          rendered_body: `Payment reminder sent for ${client.name} - ${formatPaise(parsed.stated_closing_balance_paise)}`,
+          status: "sent",
+          provider: "gmail",
+          provider_message_id: info.messageId,
+          sent_at: new Date().toISOString(),
+          scheduled_for: new Date().toISOString(),
+          idempotency_key: `import-${importRow.id}-${Date.now()}`,
+        });
+      } catch (sendErr) {
+        console.error("Live email dispatch error:", sendErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       importId: importRow.id,
@@ -180,6 +243,8 @@ export async function POST(request: Request) {
       totalRows: parsed.entries.length,
       openingBalance: Number(parsed.opening_balance_paise),
       closingBalance: Number(parsed.stated_closing_balance_paise),
+      emailSent,
+      emailMessageId,
     });
   } catch (err) {
     console.error("Direct ledger import error:", err);
