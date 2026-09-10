@@ -93,6 +93,12 @@ export async function POST(request: Request) {
       client = createdClient;
     }
 
+    // Update last_import_at on client
+    await admin
+      .from("client")
+      .update({ last_import_at: new Date().toISOString() })
+      .eq("id", client.id);
+
     // Store in Supabase Storage with Admin privileges
     const storagePath = `ledger/${Date.now()}_${filename}`;
     try {
