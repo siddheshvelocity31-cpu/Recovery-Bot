@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": [
+    "components/ui/advanced/data-table.tsx",
+    "node_modules",
+    "tests/integration/schema-open-items.test.ts",
+    "tests/integration/schema-policy.test.ts",
+    "tests/integration/seed.test.ts",
+    "tests/integration/import-handler.test.ts",
+    "tests/integration/imports.test.ts",
+    "tests/integration/job-queue.test.ts",
+    "tests/integration/schema-ledger.test.ts"
+  ]
+}

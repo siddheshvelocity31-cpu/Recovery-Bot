@@ -1,0 +1,531 @@
+@import "tailwindcss";
+
+@utility max-w-8xl {
+  max-width: 1408px;
+}
+
+@theme {
+  /* Fonts — matches vsartech.com exactly */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* Color Palette — Dark-first, vsartech.com inspired */
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e5e7eb;
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+  --color-neutral-950: #0a0a0a;
+
+  /* Semantic Colors — refined for dark enterprise */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #06b6d4;
+  --color-purple: #a855f7;
+
+  /* Surface & Border Tokens — dark glass */
+  --color-surface: #070709;
+  --color-surface-elevated: #090a0c;
+  --color-surface-glass: rgba(255, 255, 255, 0.03);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.15);
+
+  /* Text Colors */
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #a3a3a3;
+  --color-text-muted: #737373;
+  --color-text-inverse: #070709;
+
+  /* Spacing Scale (4px base) */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-14: 3.5rem;
+  --spacing-20: 5rem;
+
+  /* Border Radius — sharp, technical */
+  --radius-none: 0;
+  --radius-hairline: 1px;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-full: 9999px;
+
+  /* Container */
+  --container-max: 1408px;
+
+  /* Max Width */
+  --max-w-8xl: 1408px;
+
+  /* Typography Scale */
+  --text-display: 3.5rem;
+  --text-h1: 2.25rem;
+  --text-h2: 1.5rem;
+  --text-h3: 1.125rem;
+  --text-body: 0.875rem;
+  --text-body-sm: 0.8125rem;
+  --text-label: 0.6875rem;
+  --text-mono: 0.75rem;
+  --text-mono-sm: 0.625rem;
+
+  /* Animation Durations — vsartech.com motion tokens */
+  --duration-micro: 75ms;
+  --duration-short: 200ms;
+  --duration-medium: 300ms;
+  --duration-long: 500ms;
+
+  /* Easing */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-surface: #ffffff;
+    --color-surface-elevated: #fafafa;
+    --color-surface-glass: rgba(0, 0, 0, 0.03);
+    --color-border: rgba(0, 0, 0, 0.08);
+    --color-border-strong: rgba(0, 0, 0, 0.15);
+    --color-text-primary: #171717;
+    --color-text-secondary: #525252;
+    --color-text-muted: #737373;
+    --color-text-inverse: #fafafa;
+  }
+}
+
+:root {
+  --background: var(--color-surface);
+  --foreground: var(--color-text-primary);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-success);
+  color: white;
+}
+
+/* Focus Visible - Global */
+:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: light) {
+  :focus-visible {
+    outline-color: var(--color-text-primary);
+  }
+}
+
+/* Scrollbar — refined */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ============================================================================
+   Animation Keyframes — vsartech.com inspired
+   ============================================================================ */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes progress-fill {
+  from { width: 0%; }
+  to { width: var(--progress-width, 100%); }
+}
+
+/* ============================================================================
+   Animation Utilities - using cubic-bezier directly for Tailwind v4 compatibility
+   ============================================================================ */
+
+.animate-fade-in {
+  animation: fade-in 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-down {
+  animation: slide-down 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+  background-size: 200% 100%;
+}
+
+/* Stagger children */
+.stagger-children > * {
+  opacity: 0;
+  animation: slide-up 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 40ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 80ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 160ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 280ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger-children > *,
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-slide-down,
+  .animate-scale-in,
+  .animate-pulse-glow,
+  .animate-shimmer {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* ============================================================================
+   Background Patterns — vsartech.com radial dot grid
+   ============================================================================ */
+
+.bg-dot-grid {
+  background-image: radial-gradient(circle at 1.5px 1.5px, rgba(255, 255, 255, 0.04) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+@media (prefers-color-scheme: light) {
+  .bg-dot-grid {
+    background-image: radial-gradient(circle at 1.5px 1.5px, rgba(0, 0, 0, 0.04) 1px, transparent 0);
+  }
+}
+
+.bg-radial-glow {
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+}
+
+/* ============================================================================
+   Glass / Card Utilities — vsartech.com glass cards
+   ============================================================================ */
+
+.glass {
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-border-strong);
+}
+
+.card-glass {
+  @apply rounded-sm p-4 sm:p-6 transition-all duration-200;
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+}
+
+.card-glass:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--color-border-strong);
+}
+
+/* ============================================================================
+   Progress Bars — animated, vsartech.com style
+   ============================================================================ */
+
+.progress-bar {
+  @apply h-[3px] w-full overflow-hidden rounded-full;
+  background: var(--color-border);
+}
+
+.progress-bar-fill {
+  @apply h-full rounded-full transition-all duration-500;
+  transform-origin: left center;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes progress-enter {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.progress-bar-fill.animate-enter {
+  animation: progress-enter 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ============================================================================
+   Typography Classes
+   ============================================================================ */
+
+.text-display { font-size: var(--text-display); font-family: var(--font-serif); font-weight: 500; letter-spacing: -0.02em; }
+.text-h1 { font-size: var(--text-h1); font-family: var(--font-serif); font-weight: 400; letter-spacing: -0.02em; }
+.text-h2 { font-size: var(--text-h2); font-weight: 700; letter-spacing: -0.02em; }
+.text-h3 { font-size: var(--text-h3); font-weight: 700; letter-spacing: -0.02em; }
+.text-body { font-size: var(--text-body); }
+.text-body-sm { font-size: var(--text-body-sm); }
+.text-label { font-size: var(--text-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0.2em; }
+.text-mono { font-size: var(--text-mono); font-family: var(--font-mono); font-weight: 500; }
+.text-mono-sm { font-size: var(--text-mono-sm); font-family: var(--font-mono); font-weight: 700; }
+
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-muted { color: var(--color-text-muted); }
+.text-inverse { color: var(--color-text-inverse); }
+.text-success { color: var(--color-success); }
+.text-warning { color: var(--color-warning); }
+.text-error { color: var(--color-error); }
+.text-info { color: var(--color-info); }
+
+.bg-surface { background-color: var(--color-surface); }
+.bg-surface-elevated { background-color: var(--color-surface-elevated); }
+.bg-surface-glass { background-color: var(--color-surface-glass); }
+.border-default { border-color: var(--color-border); }
+.border-strong { border-color: var(--color-border-strong); }
+
+.rounded-hairline { border-radius: var(--radius-hairline); }
+.rounded-sm { border-radius: var(--radius-sm); }
+.rounded-md { border-radius: var(--radius-md); }
+.rounded-lg { border-radius: var(--radius-lg); }
+.rounded-full { border-radius: var(--radius-full); }
+
+/* Container */
+.container {
+  @apply max-w-8xl mx-auto px-4 sm:px-6 lg:px-12;
+}
+
+/* Card — glass version */
+.card {
+  @apply rounded-sm p-4 sm:p-6 transition-all duration-200;
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+}
+
+.card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--color-border-strong);
+}
+
+/* Table container — wraps tables with horizontal scroll */
+.table-container {
+  @apply relative overflow-x-auto rounded-sm;
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+}
+
+/* Table */
+.table {
+  @apply w-full min-w-max text-body-sm;
+}
+
+/* Status badge — glass variant */
+.badge-glass {
+  @apply inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-label font-medium;
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--color-border);
+}
+
+/* Button — refined vsartech.com style */
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200 rounded-sm
+         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2
+         active:scale-[0.98] dark:focus-visible:ring-white;
+  background: white;
+  color: #070709;
+  box-shadow: 0 10px 40px rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.btn-primary:hover {
+  background: #f5f5f5;
+  box-shadow: 0 15px 50px rgba(255, 255, 255, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  transform: none;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200 rounded-sm
+         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2
+         active:scale-[0.98] dark:focus-visible:ring-white;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fafafa;
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--color-border-strong);
+}
+
+.btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200 rounded-sm
+         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2
+         dark:focus-visible:ring-white;
+  color: #a3a3a3;
+}
+
+.btn-ghost:hover {
+  color: #fafafa;
+}
+
+.btn-destructive {
+  @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200 rounded-sm
+         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2
+         active:scale-[0.98] dark:focus-visible:ring-white;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-destructive:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* Input — glass style */
+.input-glass {
+  @apply w-full rounded-sm px-3 py-2 text-body placeholder:text-neutral-500
+         focus:border-neutral-950 focus:ring-1 focus:ring-neutral-950 focus:outline-none
+         disabled:opacity-60 transition-all duration-200;
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.input-glass:focus {
+  border-color: white;
+  ring: 1px solid white;
+}
+
+@media (prefers-color-scheme: light) {
+  .input-glass {
+    @apply border-neutral-200 focus:border-neutral-950 focus:ring-neutral-950;
+    background: white;
+  }
+}
+
+/* Skeleton loader */
+.skeleton {
+  @apply animate-pulse rounded-sm;
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-border-strong) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
