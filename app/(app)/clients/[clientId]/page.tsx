@@ -535,7 +535,7 @@ async function NotificationsTab({ clientId }: { clientId: string }) {
     cadence_step_number: Number(r["cadence_step_number"]),
     template_key: String(r["template_key"]),
     persona_tone: String(r["persona_tone"]),
-    rendered_body: String(r["rendered_body"]),
+    rendered_body: r["rendered_body"] != null ? String(r["rendered_body"]) : "",
     status: String(r["status"]),
     is_dry_run: Boolean(r["is_dry_run"]),
     scheduled_for: String(r["scheduled_for"]),

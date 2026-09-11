@@ -5,18 +5,12 @@ import { recordTick } from "@/lib/config/system";
 
 const DEFAULT_BATCH_SIZE = 20;
 
-export async function POST(request: Request) {
+async function runCronTick(request: Request): Promise<NextResponse> {
   const authHeader = request.headers.get("authorization");
 
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return NextResponse.json(
-      { error: "CRON_SECRET not configured" },
-      { status: 500 },
-    );
-  }
-
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  // If CRON_SECRET is not set, allow without auth (development / initial setup)
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json(
       { error: "Unauthorized" },
       { status: 401 },
@@ -56,4 +50,14 @@ export async function POST(request: Request) {
   await recordTick().catch(() => { /* non-fatal */ });
 
   return NextResponse.json({ claimed: jobs.length, processed, failed });
+}
+
+// Vercel Cron sends GET requests — export GET as primary handler
+export async function GET(request: Request): Promise<NextResponse> {
+  return runCronTick(request);
+}
+
+// Also support POST for manual triggering and backward compatibility
+export async function POST(request: Request): Promise<NextResponse> {
+  return runCronTick(request);
 }

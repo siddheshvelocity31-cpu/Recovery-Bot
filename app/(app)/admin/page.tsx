@@ -185,6 +185,9 @@ export default async function AdminPage() {
   if (stats.deadJobCount > 0) {
     alerts.push(`${stats.deadJobCount} dead job${stats.deadJobCount === 1 ? "" : "s"} require attention.`);
   }
+  if (stats.pendingJobCount > 50) {
+    alerts.push(`${stats.pendingJobCount} jobs pending in worker queue — check background processor health.`);
+  }
   if (stats.stuckImportCount > 0) {
     alerts.push(`${stats.stuckImportCount} import${stats.stuckImportCount === 1 ? "" : "s"} stuck in 'parsing' for > 15 min.`);
   }

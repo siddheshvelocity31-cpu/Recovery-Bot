@@ -171,6 +171,9 @@ export async function POST(request: Request) {
 
     if (insertError) throw insertError;
 
+    // Delete old entries for client to prevent balance accumulation on re-upload
+    await admin.from("ledger_entry").delete().eq("client_id", client.id);
+
     // Insert all ledger entries
     let insertedCount = 0;
     let rejectedCount = 0;
