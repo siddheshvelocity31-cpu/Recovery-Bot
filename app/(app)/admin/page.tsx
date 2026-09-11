@@ -29,8 +29,13 @@ async function getAdminStats(): Promise<AdminStats> {
     await Promise.all([
       adminAny.from("job").select("id", { count: "exact", head: true }).eq("status", "dead") as Promise<{ count: number | null; error: unknown }>,
       adminAny.from("job").select("id", { count: "exact", head: true }).eq("status", "pending") as Promise<{ count: number | null; error: unknown }>,
-      adminAny.from("ledger_import").select("id", { count: "exact", head: true }).eq("status", "parsing").lt("updated_at", fifteenMinAgo) as Promise<{ count: number | null; error: unknown }>,
-      adminAny.from("ledger_import").select("completed_at").eq("status", "done").order("completed_at", { ascending: false }).limit(1).maybeSingle() as Promise<{ data: { completed_at: string | null } | null; error: unknown }>,
+      // Only flag imports stuck in 'parsing' if they were created in the last 24 hours (ignore old historical stuck rows)
+      adminAny.from("ledger_import").select("id", { count: "exact", head: true })
+        .eq("status", "parsing")
+        .lt("updated_at", fifteenMinAgo)
+        .gt("created_at", new Date(now - 24 * 60 * 60 * 1000).toISOString()) as Promise<{ count: number | null; error: unknown }>,
+      // Use status 'imported' — that is what the upload API sets (not 'done')
+      adminAny.from("ledger_import").select("completed_at").eq("status", "imported").order("completed_at", { ascending: false }).limit(1).maybeSingle() as Promise<{ data: { completed_at: string | null } | null; error: unknown }>,
       adminAny.from("flag").select("id", { count: "exact", head: true }).eq("severity", "red").is("acknowledged_at", null) as Promise<{ count: number | null; error: unknown }>,
     ]);
 
@@ -166,9 +171,11 @@ export default async function AdminPage() {
   const [config, stats] = await Promise.all([getSystemConfig(), getAdminStats()]);
 
   const ageMinutes = tickAgeMinutes(config.last_tick_at, stats.fetchedAt);
-  const tickStale = ageMinutes !== null && ageMinutes > 5;
+  // Only alert as stale if cron has previously run (ageMinutes not null) AND it's been > 60 min
+  // Don't alert if cron was never configured (null)
+  const tickStale = ageMinutes !== null && ageMinutes > 60;
   const noRecentImport =
-    stats.lastSuccessfulImport === null ||
+    stats.lastSuccessfulImport !== null &&
     stats.fetchedAt - new Date(stats.lastSuccessfulImport).getTime() > 3 * 24 * 60 * 60 * 1000;
 
   const alerts: string[] = [];
