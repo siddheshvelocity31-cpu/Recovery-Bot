@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import { requireRole } from "@/lib/auth/require-role";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -23,12 +23,23 @@ export default async function ClientsPage({
 
   const admin = getAdminClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: clients, error } = await (admin as any).rpc("get_client_list", {
-    p_search: q ?? null,
-    p_tier: tier ?? null,
-    p_page: page,
-    p_page_size: 50,
-  }) as { data: Array<Record<string, unknown>> | null; error: unknown };
+  const adminAny = admin as any;
+
+  // 1. Query client records
+  let clientQuery = adminAny
+    .from("client")
+    .select("id, client_code, name, relationship_tier, last_import_at")
+    .order("name", { ascending: true })
+    .range((page - 1) * 50, page * 50 - 1);
+
+  if (q) {
+    clientQuery = clientQuery.or(`name.ilike.%${q}%,client_code.ilike.%${q}%`);
+  }
+  if (tier) {
+    clientQuery = clientQuery.eq("relationship_tier", tier);
+  }
+
+  const { data: rawClients, error } = await clientQuery;
 
   if (error) {
     return (
@@ -43,12 +54,32 @@ export default async function ClientsPage({
     );
   }
 
-  const rows = (clients ?? []).map((c) => ({
+  const clientList = rawClients ?? [];
+  const clientIds = clientList.map((c: any) => c.id);
+
+  // 2. Query exact net sum of ledger entries for these clients
+  const balanceMap = new Map<string, bigint>();
+  if (clientIds.length > 0) {
+    const { data: entrySums } = await adminAny
+      .from("ledger_entry")
+      .select("client_id, bill_amount_paise")
+      .in("client_id", clientIds);
+
+    for (const row of entrySums ?? []) {
+      if (row.bill_amount_paise != null) {
+        const cId = String(row.client_id);
+        const curr = balanceMap.get(cId) ?? 0n;
+        balanceMap.set(cId, curr + BigInt(row.bill_amount_paise));
+      }
+    }
+  }
+
+  const rows = clientList.map((c: any) => ({
     id: String(c["id"]),
     client_code: String(c["client_code"] ?? ""),
     name: String(c["name"] ?? ""),
     relationship_tier: c["relationship_tier"] as string | null,
-    balance_paise: String(c["balance_paise"] ?? "0"),
+    balance_paise: (balanceMap.get(String(c["id"])) ?? 0n).toString(),
     last_import_at: c["last_import_at"] as string | null,
   }));
 
