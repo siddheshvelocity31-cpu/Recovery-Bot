@@ -65,14 +65,18 @@ export async function parseLedgerWorkbook(buffer: Buffer): Promise<ParsedLedger>
   if (!worksheet) throw new Error("No worksheet found in workbook");
   const rowCount = worksheet.rowCount;
 
-  // 1. Locate the header row (first cell trimmed to "Doc Date")
+  // 1. Locate the header row (any cell containing "Doc Date" or "Doc No")
   let headerRowIndex = 8;
   for (let i = 1; i <= rowCount; i++) {
-    const firstCell = worksheet.getCell(i, 1)?.value;
-    if (
-      firstCell !== null &&
-      String(firstCell).trim().toLowerCase().replace(/\s+/g, " ") === "doc date"
-    ) {
+    const row = worksheet.getRow(i);
+    let found = false;
+    row.eachCell((cell) => {
+      const val = cell.value != null ? String(cell.value).trim().toLowerCase().replace(/\s+/g, " ") : "";
+      if (val === "doc date" || val === "doc no" || val === "doc code") {
+        found = true;
+      }
+    });
+    if (found) {
       headerRowIndex = i;
       break;
     }
@@ -97,33 +101,41 @@ export async function parseLedgerWorkbook(buffer: Buffer): Promise<ParsedLedger>
   // 3. Extract client_code and client_name from header
   let client_code = "";
   let client_name = "";
-  const clientLine = headerBlock.find(
-    (row) => row["col_1"] && /\[[A-Z0-9]+\]/.test(String(row["col_1"])),
-  );
-  if (clientLine) {
-    const match = String(clientLine["col_1"]).match(/\[([A-Z0-9]+)\]/);
-    if (match) client_code = match[1]!;
-    client_name = String(clientLine["col_1"])
-      .replace(/^Client\s+/i, "")
-      .replace(/\[[A-Z0-9]+\]/, "")
-      .trim();
+  for (const row of headerBlock) {
+    for (let j = 1; j <= 10; j++) {
+      const val = row[`col_${j}`];
+      if (val != null && /\[[A-Za-z0-9_\-]+\]/.test(String(val))) {
+        const match = String(val).match(/\[([A-Za-z0-9_\-]+)\]/);
+        if (match) client_code = match[1]!;
+        client_name = String(val)
+          .replace(/^General\s+Ledger\s+/i, "")
+          .replace(/^Client\s+/i, "")
+          .replace(/\[[A-Za-z0-9_\-]+\]/, "")
+          .trim();
+        break;
+      }
+    }
+    if (client_code) break;
   }
 
   // 4. Extract period_from / period_to from "Ledger Statement From ... to ..."
   let period_from = "";
   let period_to = "";
-  const periodLine = headerBlock.find(
-    (row) => row["col_1"] && String(row["col_1"]).includes("Ledger Statement From"),
-  );
-  if (periodLine) {
-    const periodStr = String(periodLine["col_1"]);
-    const match = periodStr.match(
-      /Ledger Statement From\s+(\d{1,2})\/(\d{1,2})\/(\d{4})\s+to\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i,
-    );
-    if (match) {
-      period_from = `${match[3]}-${match[2]!.padStart(2, "0")}-${match[1]!.padStart(2, "0")}`;
-      period_to = `${match[6]}-${match[5]!.padStart(2, "0")}-${match[4]!.padStart(2, "0")}`;
+  for (const row of headerBlock) {
+    for (let j = 1; j <= 10; j++) {
+      const val = row[`col_${j}`];
+      if (val != null && String(val).toLowerCase().includes("ledger statement from")) {
+        const match = String(val).match(
+          /Ledger Statement From\s+(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s+to\s+(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/i,
+        );
+        if (match) {
+          period_from = `${match[3]}-${match[2]!.padStart(2, "0")}-${match[1]!.padStart(2, "0")}`;
+          period_to = `${match[6]}-${match[5]!.padStart(2, "0")}-${match[4]!.padStart(2, "0")}`;
+        }
+        break;
+      }
     }
+    if (period_from) break;
   }
 
   // 5. Get column headers from the header row
@@ -138,48 +150,76 @@ export async function parseLedgerWorkbook(buffer: Buffer): Promise<ParsedLedger>
   const entries: ParsedEntry[] = [];
   let openingAmountPaise: bigint = 0n;
 
+  const docDateIdx = findColumn(colHeaders, ["doc date", "date"]);
+  const docCodeIdx = findColumn(colHeaders, ["doc no", "doc code", "code", "reference"]);
+  const codeIdx = findColumn(colHeaders, ["code", "doc no", "type"]);
+  const billAmountIdx = findColumn(colHeaders, ["bill amount", "amount", "debit", "balance"]);
+  const debitIdx = findColumn(colHeaders, ["debit"]);
+  const creditIdx = findColumn(colHeaders, ["credit"]);
+  const narrationIdx = findColumn(colHeaders, ["description", "narration", "particulars", "reference"]);
+  const paxIdx = findColumn(colHeaders, ["passenger", "pax name", "pax"]);
+
   for (let i = headerRowIndex + 1; i <= rowCount; i++) {
     const row = worksheet.getRow(i);
-    const docCodeIdx = findColumn(colHeaders, ["doc code", "code"]);
-    const docCodeCell = docCodeIdx ? row.getCell(docCodeIdx) : undefined;
-    const docCode = docCodeCell?.value;
 
-    if (docCode == null || String(docCode).trim() === "") continue;
+    const docCodeCell = docCodeIdx ? row.getCell(docCodeIdx)?.value : undefined;
+    const docDateCell = docDateIdx ? row.getCell(docDateIdx)?.value : undefined;
 
-    const docDateIdx = findColumn(colHeaders, ["doc date"]);
-    const docDateRaw = docDateIdx ? row.getCell(docDateIdx)?.value : undefined;
-    const entryDocDate = toLedgerDate(docDateRaw);
+    if (docCodeCell == null && docDateCell == null) continue;
+    const docCodeStr = docCodeCell != null ? String(docCodeCell).trim() : "";
+    if (!docCodeStr && docDateCell == null) continue;
 
-    const codeIdx = findColumn(colHeaders, ["code"]);
-    const code = codeIdx ? row.getCell(codeIdx)?.value : undefined;
-    const isOpening = code != null && String(code).trim() === "B/F";
-    const isTotal = code == null || String(code).trim() === "";
+    const entryDocDate = toLedgerDate(docDateCell);
 
-    const billAmountIdx = findColumn(colHeaders, ["bill amount"]);
-    const rawAmount = billAmountIdx ? row.getCell(billAmountIdx)?.value : undefined;
-    const paise: bigint | null = rawAmount != null && String(rawAmount).trim() !== ""
-      ? (parseRupeesToPaise(String(rawAmount)) ?? null)
-      : null;
+    const codeStr = codeIdx ? String(row.getCell(codeIdx)?.value ?? "").trim() : "";
+    const isOpening = docCodeStr.toUpperCase() === "B/F" || codeStr.toUpperCase() === "B/F" || docCodeStr.toUpperCase().includes("OPENING");
+    const isTotal = docCodeStr.toUpperCase().includes("TOTAL") || codeStr.toUpperCase().includes("TOTAL");
+
+    if (isTotal) continue;
+
+    let paise: bigint | null = null;
+    let isCredit = false;
+
+    if (debitIdx && creditIdx) {
+      const debitVal = row.getCell(debitIdx)?.value;
+      const creditVal = row.getCell(creditIdx)?.value;
+      const debitPaise = debitVal != null && String(debitVal).trim() !== "" ? parseRupeesToPaise(String(debitVal)) : 0n;
+      const creditPaise = creditVal != null && String(creditVal).trim() !== "" ? parseRupeesToPaise(String(creditVal)) : 0n;
+
+      if ((debitPaise ?? 0n) > 0n) {
+        paise = debitPaise;
+        isCredit = false;
+      } else if ((creditPaise ?? 0n) > 0n) {
+        paise = -(creditPaise ?? 0n);
+        isCredit = true;
+      } else {
+        const rawAmount = billAmountIdx ? row.getCell(billAmountIdx)?.value : undefined;
+        paise = rawAmount != null && String(rawAmount).trim() !== "" ? (parseRupeesToPaise(String(rawAmount)) ?? null) : null;
+      }
+    } else {
+      const rawAmount = billAmountIdx ? row.getCell(billAmountIdx)?.value : undefined;
+      paise = rawAmount != null && String(rawAmount).trim() !== "" ? (parseRupeesToPaise(String(rawAmount)) ?? null) : null;
+      if (paise !== null && paise < 0n) isCredit = true;
+    }
 
     if (isOpening) {
       openingAmountPaise = paise ?? 0n;
       continue;
     }
 
-    if (isTotal) continue;
-
-    const isNegative = paise !== null && paise < 0n;
+    const narration = narrationIdx ? String(row.getCell(narrationIdx)?.value ?? "").trim() : null;
+    const paxName = paxIdx ? String(row.getCell(paxIdx)?.value ?? "").trim() : null;
 
     entries.push({
       row_number: entries.length + 1,
       doc_date: entryDocDate,
-      doc_code: String(docCode).trim(),
-      entry_type: isNegative ? "credit" : "debit",
-      pax_name: null,
+      doc_code: docCodeStr || `ROW_${i}`,
+      entry_type: isCredit ? "credit" : "debit",
+      pax_name: paxName || null,
       bill_amount_paise: paise,
       natural_key: naturalKey(
-        client_code,
-        String(docCode).trim(),
+        client_code || "AUTO",
+        docCodeStr || `ROW_${i}`,
         entryDocDate,
         entries.length + 1,
         paise ?? 0n,
