@@ -160,15 +160,12 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
   if (clientError) throw clientError;
   if (!client) notFound();
 
-  const { data: clientList } = await adminAny.rpc("get_client_list", {
-    p_search: null,
-    p_tier: null,
-    p_page: 1,
-    p_page_size: 1000,
-  }) as { data: Array<Record<string, unknown>> | null; error: unknown };
+  const { data: balanceRes } = await adminAny
+    .from("ledger_entry")
+    .select("bill_amount_paise")
+    .eq("client_id", clientId) as { data: Array<{ bill_amount_paise: number | null }> | null };
 
-  const clientRow = (clientList ?? []).find((c) => c["id"] === clientId);
-  const balance_paise = String(clientRow?.["balance_paise"] ?? "0");
+  const totalPaise = (balanceRes ?? []).reduce((acc, row) => acc + BigInt(row.bill_amount_paise ?? 0), 0n);
 
   const { count: entryCount } = await adminAny
     .from("ledger_entry")
@@ -176,7 +173,7 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
     .eq("client_id", clientId) as { count: number | null };
 
   const totalEntries = entryCount ?? 0;
-  const paise = BigInt(balance_paise);
+  const paise = totalPaise;
   const isNegative = paise < 0n;
   const relationshipTier = (client["relationship_tier"] as string | null) ?? "new";
   const behaviourBand = (client["behaviour_band"] as string | null) ?? "unknown";
