@@ -28,7 +28,7 @@ export default async function ClientsPage({
   // 1. Query client records
   let clientQuery = adminAny
     .from("client")
-    .select("id, client_code, name, relationship_tier, last_import_at")
+    .select("id, client_code, name, relationship_tier")
     .order("name", { ascending: true })
     .range((page - 1) * 50, page * 50 - 1);
 
@@ -57,19 +57,36 @@ export default async function ClientsPage({
   const clientList = rawClients ?? [];
   const clientIds = clientList.map((c: any) => c.id);
 
-  // 2. Query exact net sum of ledger entries for these clients
+  // 2. Query exact net sum of ledger entries AND last import date for these clients
   const balanceMap = new Map<string, bigint>();
+  const lastImportMap = new Map<string, string>();
+
   if (clientIds.length > 0) {
-    const { data: entrySums } = await adminAny
-      .from("ledger_entry")
-      .select("client_id, bill_amount_paise")
-      .in("client_id", clientIds);
+    const [{ data: entrySums }, { data: lastImports }] = await Promise.all([
+      adminAny
+        .from("ledger_entry")
+        .select("client_id, bill_amount_paise")
+        .in("client_id", clientIds),
+      adminAny
+        .from("ledger_import")
+        .select("client_id, completed_at, created_at")
+        .in("client_id", clientIds)
+        .eq("status", "imported")
+        .order("created_at", { ascending: false }),
+    ]);
 
     for (const row of entrySums ?? []) {
       if (row.bill_amount_paise != null) {
         const cId = String(row.client_id);
         const curr = balanceMap.get(cId) ?? 0n;
         balanceMap.set(cId, curr + BigInt(row.bill_amount_paise));
+      }
+    }
+
+    for (const row of lastImports ?? []) {
+      const cId = String(row.client_id);
+      if (!lastImportMap.has(cId)) {
+        lastImportMap.set(cId, String(row.completed_at || row.created_at));
       }
     }
   }
@@ -80,7 +97,7 @@ export default async function ClientsPage({
     name: String(c["name"] ?? ""),
     relationship_tier: c["relationship_tier"] as string | null,
     balance_paise: (balanceMap.get(String(c["id"])) ?? 0n).toString(),
-    last_import_at: c["last_import_at"] as string | null,
+    last_import_at: lastImportMap.get(String(c["id"])) ?? null,
   }));
 
   return (
