@@ -81,6 +81,7 @@ export async function POST(request: Request) {
     let client: { id: string; client_code: string; name: string } | null = null;
 
     if (requestedClientId) {
+      // User explicitly selected a client from the dropdown — use that
       const { data: found } = await admin
         .from("client")
         .select("id, client_code, name")
@@ -89,21 +90,67 @@ export async function POST(request: Request) {
       if (found) client = found;
     }
 
-    if (!client) {
-      const targetClientCode = parsed.client_code || (clientCode && clientCode !== "AUTO" ? clientCode : "CLIENT_01");
+    if (!client && parsed.client_code && parsed.client_code !== "") {
+      // File header has a [CLIENT_CODE] — look it up or create it
       const { data: found } = await admin
         .from("client")
         .select("id, client_code, name")
-        .eq("client_code", targetClientCode)
+        .eq("client_code", parsed.client_code)
         .maybeSingle();
       client = found;
 
       if (!client) {
+        // Create new client from the parsed header info
         const { data: createdClient, error: clientCreateErr } = await admin
           .from("client")
           .insert({
-            client_code: targetClientCode,
-            name: parsed.client_name || parsed.client_code || "Corporate Client",
+            client_code: parsed.client_code,
+            name: parsed.client_name || parsed.client_code,
+            relationship_tier: "standard",
+          })
+          .select("id, client_code, name")
+          .single();
+
+        if (clientCreateErr) throw clientCreateErr;
+        client = createdClient;
+      }
+    }
+
+    if (!client && clientCode && clientCode !== "AUTO") {
+      // client_code was passed explicitly in form data
+      const { data: found } = await admin
+        .from("client")
+        .select("id, client_code, name")
+        .eq("client_code", clientCode)
+        .maybeSingle();
+      client = found;
+    }
+
+    if (!client) {
+      // No client selected, no header, no code — derive from filename
+      // e.g. "sample_credit_outstanding_new_client.xlsx" → "New Client"
+      const derivedName = filename
+        .replace(/\.(xlsx|xls|docx|doc|csv)$/i, "")
+        .replace(/[_\-]/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+        .trim();
+      const derivedCode = derivedName.replace(/\s+/g, "_").toUpperCase().slice(0, 20);
+
+      // Check if this derived code already exists
+      const { data: found } = await admin
+        .from("client")
+        .select("id, client_code, name")
+        .eq("client_code", derivedCode)
+        .maybeSingle();
+      client = found;
+
+      if (!client) {
+        // Create brand new client from filename
+        const { data: createdClient, error: clientCreateErr } = await admin
+          .from("client")
+          .insert({
+            client_code: derivedCode,
+            name: derivedName,
             relationship_tier: "standard",
           })
           .select("id, client_code, name")
@@ -256,13 +303,17 @@ export async function POST(request: Request) {
       }
     }
 
-    // Dispatch real email if SMTP credentials are configured (with fallback) and there's an outstanding balance
+    // Dispatch real email only if there are entries parsed AND outstanding balance > 0
+    // Skip email if file was unrecognized format (0 entries, 0 balance)
     let emailSent = false;
     let emailMessageId: string | null = null;
     const smtpUser = process.env.SMTP_USER || "siddheshvelocity31@gmail.com";
     const smtpPass = process.env.SMTP_PASS || "bkxr jpvq sybc wcjq";
 
-    if (smtpUser && smtpPass) {
+    const hasBalance = effectiveOutstandingPaise > 0n;
+    const hasEntries = insertedCount > 0;
+
+    if (smtpUser && smtpPass && hasBalance && hasEntries) {
       try {
         const transporter = nodemailer.createTransport({
           service: "gmail",
@@ -328,6 +379,10 @@ export async function POST(request: Request) {
       }
     }
 
+    const parseWarning = insertedCount === 0
+      ? "No statement rows were extracted from this file. The file format may not match the expected ledger layout (requires a 'Doc Date' column header). Please check the file format or select the correct client manually."
+      : null;
+
     return NextResponse.json({
       success: true,
       importId: importRow.id,
@@ -338,6 +393,7 @@ export async function POST(request: Request) {
       closingBalance: Number(parsed.stated_closing_balance_paise),
       emailSent,
       emailMessageId,
+      warning: parseWarning,
     });
   } catch (err) {
     console.error("Direct ledger import error:", err);

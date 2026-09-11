@@ -127,8 +127,16 @@ export default function ImportsPage() {
         throw new Error(resJson.error || resJson.message || "Failed to process document file");
       }
 
+      // If the file was uploaded but no entries were extracted, show a warning (not an error)
+      if (resJson.warning) {
+        setUploadProgress({ stage: "error", progress: 0, message: "" });
+        setError(`⚠️ ${resJson.warning}`);
+        await loadImports();
+        return;
+      }
+
       setUploadProgress({ stage: "complete", progress: 100, message: "Document imported successfully!" });
-      setSuccessInfo(`Successfully extracted and imported ${resJson.rowsImported} statement rows.`);
+      setSuccessInfo(`Successfully extracted and imported ${resJson.rowsImported} statement rows for ${resJson.client?.name || "client"}.${resJson.emailSent ? " Payment reminder email sent." : ""}`);
 
       await loadImports();
 
