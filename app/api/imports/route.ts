@@ -227,6 +227,21 @@ export async function POST(request: Request) {
       { kind: "flags.evaluate", payload: { client_id: client.id } },
     ]);
 
+    // Instantly derive open items and evaluate flags so the Alert Board updates immediately without waiting for cron
+    try {
+      const { handleDeriveOpenItems } = await import("@/lib/jobs/handlers/ledger-derive-open-items");
+      const { handleAgingRecompute } = await import("@/lib/jobs/handlers/aging-recompute");
+      const { handleCaseEvaluate } = await import("@/lib/jobs/handlers/case-evaluate");
+      const { handleFlagsEvaluate } = await import("@/lib/jobs/handlers/flags-evaluate");
+
+      await handleDeriveOpenItems({ id: "instant", kind: "ledger.derive_open_items", payload: { import_id: importRow.id, client_id: client.id } } as any);
+      await handleAgingRecompute({ id: "instant", kind: "aging.recompute", payload: { client_id: client.id } } as any);
+      await handleCaseEvaluate({ id: "instant", kind: "case.evaluate", payload: { client_id: client.id } } as any);
+      await handleFlagsEvaluate({ id: "instant", kind: "flags.evaluate", payload: { client_id: client.id } } as any);
+    } catch (evalErr) {
+      console.error("Instant flag evaluation error:", evalErr);
+    }
+
     // Compute total balance from entries if stated_closing_balance_paise is 0 or null
     let effectiveOutstandingPaise = parsed.stated_closing_balance_paise;
     if (!effectiveOutstandingPaise || effectiveOutstandingPaise === 0n) {

@@ -20,7 +20,7 @@ export async function handleDeriveOpenItems(job: Job): Promise<void> {
     .select(
       "id, client_id, doc_date, doc_code, entry_type, narration, pax_name, reference, bill_amount_paise, natural_key",
     )
-    .eq("import_id", import_id)
+    .eq("ledger_import_id", import_id)
 
   if (entriesError) throw entriesError
 
