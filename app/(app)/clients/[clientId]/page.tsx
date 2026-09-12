@@ -11,6 +11,7 @@ import { OpenItemsTable, type OpenItem } from "@/components/clients/open-items-t
 import { AgingStrip } from "@/components/clients/aging-strip";
 import { NotificationsTable, type OutreachRow } from "@/components/clients/notifications-table";
 import { ClientFlagBanner } from "@/components/flags/client-flag-banner";
+import { EditContactModal } from "@/components/clients/edit-contact-modal";
 import { Th, Td } from "@/components/ui/table";
 import { TabLink } from "@/components/ui/tab-link";
 import { PageLink } from "@/components/ui/page-link";
@@ -172,6 +173,31 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
     .select("id", { count: "exact", head: true })
     .eq("client_id", clientId) as { count: number | null };
 
+  // Fetch latest ledger import for exact last_import_at timestamp
+  const { data: latestImportRow } = await adminAny
+    .from("ledger_import")
+    .select("created_at, completed_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle() as { data: { created_at: string | null; completed_at: string | null } | null };
+
+  // Fetch primary contact details
+  const { data: contactRow } = await adminAny
+    .from("contact")
+    .select("id, full_name, email, phone_e164")
+    .eq("client_id", clientId)
+    .maybeSingle() as { data: { id: string; full_name: string; email: string; phone_e164: string | null } | null };
+
+  const lastImportIso = latestImportRow?.completed_at || latestImportRow?.created_at || (client["last_import_at"] as string | null);
+  const formattedLastImport = lastImportIso
+    ? new Date(lastImportIso).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
+
   const totalEntries = entryCount ?? 0;
   const paise = totalPaise;
   const isNegative = paise < 0n;
@@ -216,6 +242,9 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
         </div>
       </div>
 
+      {/* Primary Contact Details & Edit Modal Button */}
+      <EditContactModal clientId={clientId} initialContact={contactRow} />
+
       {/* Meta strip — animated stats */}
       <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-4 stagger-children">
         <StatCard
@@ -238,9 +267,7 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
         />
         <StatCard
           label="Last import"
-          value={client["last_import_at"]
-            ? new Date(String(client["last_import_at"])).toLocaleDateString("en-IN")
-            : "—"}
+          value={formattedLastImport}
           icon={Clock}
           tone="neutral"
         />

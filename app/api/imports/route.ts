@@ -324,18 +324,28 @@ export async function POST(request: Request) {
 
     if (smtpUser && smtpPass && hasBalance && hasEntries) {
       try {
+        // Query primary contact email for this client from contact table
+        const { data: contactRow } = await admin
+          .from("contact")
+          .select("email, full_name")
+          .eq("client_id", client.id)
+          .maybeSingle();
+
+        const recipientEmail = contactRow?.email || smtpUser;
+        const contactName = contactRow?.full_name || "Accounts Team";
+
         const transporter = nodemailer.createTransport({
           service: "gmail",
           auth: { user: smtpUser, pass: smtpPass },
         });
         const info = await transporter.sendMail({
           from: `"VSAR Recovery System" <${smtpUser}>`,
-          to: smtpUser,
+          to: recipientEmail,
           subject: `Payment Reminder Notice - ${client.name} (${client.client_code})`,
           text: [
-            `Dear Accounts Team,`,
+            `Dear ${contactName},`,
             ``,
-            `This is an automated payment reminder generated from your newly uploaded ledger file.`,
+            `This is an automated payment reminder generated for ${client.name}.`,
             ``,
             `CLIENT DETAILS:`,
             `------------------------------------------------`,

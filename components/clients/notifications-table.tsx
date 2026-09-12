@@ -62,7 +62,7 @@ export function NotificationsTable({ items }: { items: OutreachRow[] }) {
 
   return (
     <div className="relative overflow-x-auto rounded-sm border border-neutral-200 dark:border-white/15">
-      <div className="absolute right-0 top-0 bottom-0 w-16 pointer-events-none bg-gradient-to-l from-neutral-50 to-transparent dark:from-neutral-950" aria-hidden="true" />
+      <div className="absolute right-0 top-0 bottom-0 w-16 pointer-events-none bg-gradient-to-l from-neutral-50 to-transparent dark:from-[#090a0c]" aria-hidden="true" />
       <table className="w-full min-w-max text-body-sm">
         <thead>
           <tr>
@@ -106,7 +106,7 @@ export function NotificationsTable({ items }: { items: OutreachRow[] }) {
                     <span className="group-open:hidden">Show</span>
                     <span className="hidden group-open:inline">Hide</span>
                   </summary>
-                  <pre className="mt-2 max-w-xs overflow-x-auto whitespace-pre-wrap rounded-sm bg-neutral-100 p-2 text-mono-sm text-primary dark:bg-neutral-800 dark:text-neutral-100">
+                  <pre className="mt-2 max-w-xs overflow-x-auto whitespace-pre-wrap rounded-sm bg-neutral-100 p-2 text-mono-sm text-primary dark:bg-white/5 dark:text-white/80">
                     {item.rendered_body}
                   </pre>
                 </details>
