@@ -78,6 +78,14 @@ export async function POST(request: Request) {
     }
 
     // Resolve or create Client
+    // Fetch default category so new clients get auto-assigned
+    const { data: defaultCat } = await admin
+      .from("category")
+      .select("id")
+      .eq("is_default", true)
+      .maybeSingle() as { data: { id: string } | null };
+    const defaultCategoryId = defaultCat?.id ?? null;
+
     let client: { id: string; client_code: string; name: string } | null = null;
 
     if (requestedClientId) {
@@ -107,6 +115,7 @@ export async function POST(request: Request) {
             client_code: parsed.client_code,
             name: parsed.client_name || parsed.client_code,
             relationship_tier: "standard",
+            category_id: defaultCategoryId,
           })
           .select("id, client_code, name")
           .single();
@@ -152,6 +161,7 @@ export async function POST(request: Request) {
             client_code: derivedCode,
             name: derivedName,
             relationship_tier: "standard",
+            category_id: defaultCategoryId,
           })
           .select("id, client_code, name")
           .single();
@@ -163,6 +173,15 @@ export async function POST(request: Request) {
 
     if (!client) {
       throw new Error("Could not resolve client for ledger import");
+    }
+
+    // Auto-assign default category to existing clients that don't have one
+    if (defaultCategoryId) {
+      await admin
+        .from("client")
+        .update({ category_id: defaultCategoryId })
+        .eq("id", client.id)
+        .is("category_id", null);
     }
 
     // Check if identical ledger file has already been imported

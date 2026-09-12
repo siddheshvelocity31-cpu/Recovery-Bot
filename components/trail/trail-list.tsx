@@ -47,8 +47,7 @@ function labelForType(type: string): string {
 function groupByDay(events: TrailEvent[]): Map<string, TrailEvent[]> {
   const groups = new Map<string, TrailEvent[]>();
   for (const e of events) {
-    const ist = toZonedTime(new Date(e.occurred_at), BUSINESS_TZ);
-    const key = ist.toLocaleDateString("en-IN", {
+    const key = new Date(e.occurred_at).toLocaleDateString("en-IN", {
       timeZone: BUSINESS_TZ,
       day: "numeric",
       month: "long",
@@ -129,8 +128,7 @@ export function TrailList({ events }: TrailListProps) {
           <div className="space-y-1">
             {dayEvents.map((e) => {
               const Icon = iconForType(e.type);
-              const ist = toZonedTime(new Date(e.occurred_at), BUSINESS_TZ);
-              const absoluteIST = ist.toLocaleTimeString("en-IN", {
+              const absoluteIST = new Date(e.occurred_at).toLocaleTimeString("en-IN", {
                 timeZone: BUSINESS_TZ,
                 hour: "2-digit",
                 minute: "2-digit",

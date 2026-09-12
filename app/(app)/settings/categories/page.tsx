@@ -65,6 +65,16 @@ export default async function CategoriesPage() {
     );
   }
 
+  // Auto-assign default category to any clients that don't have one
+  const defaultCat = (categories ?? []).find((c) => Boolean(c["is_default"]));
+  if (defaultCat) {
+    await adminAny
+      .from("client")
+      .update({ category_id: String(defaultCat["id"]) })
+      .is("category_id", null);
+  }
+
+  // Fetch client counts (after auto-fix so counts are accurate)
   const { data: clientCounts } = await adminAny
     .from("client")
     .select("category_id") as {
