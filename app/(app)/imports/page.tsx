@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import { AlertCircle, FileText, Upload, CheckCircle2, XCircle, Clock, Hash, ArrowRight } from "lucide-react";
+import { AlertCircle, FileText, Upload, CheckCircle2, XCircle, Clock, Hash, ArrowRight, Loader2, Sparkles, FileSpreadsheet, MailCheck, Check } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -127,11 +127,12 @@ export default function ImportsPage() {
         throw new Error(resJson.error || resJson.message || "Failed to process document file");
       }
 
-      // If the file was uploaded but no entries were extracted, show a warning (not an error)
-      if (resJson.warning) {
-        setUploadProgress({ stage: "error", progress: 0, message: "" });
-        setError(`⚠️ ${resJson.warning}`);
+      // Handle duplicate file uploads or warning states cleanly
+      if (resJson.isDuplicate || resJson.warning) {
+        setUploadProgress({ stage: "idle", progress: 0, message: "" });
+        setError(resJson.warning || `⚠️ Duplicate File: "${file.name}" has already been uploaded previously. No duplicate rows were imported and no notification email was sent.`);
         await loadImports();
+        if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
 
@@ -247,15 +248,20 @@ export default function ImportsPage() {
               <p className="mt-4 text-label text-secondary">Max 10MB per file</p>
             </>
           ) : (
-            <>
-              <p className="text-h3 text-primary mb-2">{uploadProgress.message}</p>
-              <div className="mt-4 w-full max-w-xs mx-auto progress-bar">
+            <div className="py-6 px-4 flex flex-col items-center justify-center gap-3">
+              {/* Compact Inline Spinner Beside Loading Text */}
+              <div className="flex items-center justify-center gap-2.5">
+                <Loader2 size={16} className="text-white animate-spin shrink-0" aria-hidden="true" />
+                <span className="text-body font-medium text-white">{uploadProgress.message}</span>
+                <span className="text-mono-sm text-white/70">({uploadProgress.progress}%)</span>
+              </div>
+              <div className="w-full max-w-xs h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/10">
                 <div
-                  className="progress-bar-fill bg-primary animate-enter"
+                  className="h-full bg-white rounded-full transition-all duration-300 ease-out"
                   style={{ width: `${uploadProgress.progress}%` }}
                 />
               </div>
-            </>
+            </div>
           )}
           <Button
             variant="secondary"

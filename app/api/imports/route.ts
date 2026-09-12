@@ -175,7 +175,9 @@ export async function POST(request: Request) {
     if (existingImport) {
       return NextResponse.json({
         success: true,
-        message: "This file has already been uploaded previously. Entries deduplicated; total balance will not increase.",
+        isDuplicate: true,
+        message: "This file has already been uploaded previously. No duplicate entries or email notifications were created.",
+        warning: `Duplicate File: "${filename}" has already been uploaded previously. No duplicate entries were imported and no notification email was sent.`,
         importId: existingImport.id,
         client: { id: client.id, code: client.client_code, name: client.name },
         rowsImported: 0,
@@ -292,16 +294,23 @@ export async function POST(request: Request) {
       console.error("Instant flag evaluation error:", evalErr);
     }
 
-    // Compute total balance from entries if stated_closing_balance_paise is 0 or null
-    let effectiveOutstandingPaise = parsed.stated_closing_balance_paise;
-    if (!effectiveOutstandingPaise || effectiveOutstandingPaise === 0n) {
-      const sumEntries = parsed.entries.reduce((acc, entry) => {
-        return acc + (entry.bill_amount_paise != null ? entry.bill_amount_paise : 0n);
-      }, 0n);
-      if (sumEntries > 0n) {
-        effectiveOutstandingPaise = sumEntries;
-      }
-    }
+    // Query actual deduplicated ledger entries from DB for this client to ensure
+    // 100% exact match with the client page UI header and prevent any 2x / duplicate counting.
+    const { data: dbBalanceEntries } = await admin
+      .from("ledger_entry")
+      .select("bill_amount_paise")
+      .eq("client_id", client.id);
+
+    const dbTotalPaise = ((dbBalanceEntries as Array<Record<string, any>>) ?? []).reduce(
+      (acc: bigint, row: Record<string, any>) => acc + BigInt(row.bill_amount_paise ?? 0),
+      0n
+    );
+
+    const sumEntries = parsed.entries.reduce((acc, entry) => {
+      return acc + (entry.bill_amount_paise != null ? entry.bill_amount_paise : 0n);
+    }, 0n);
+    let effectiveOutstandingPaise = dbTotalPaise > 0n ? dbTotalPaise : (sumEntries > 0n ? sumEntries : parsed.stated_closing_balance_paise);
+    const dbEntryCount = dbBalanceEntries && dbBalanceEntries.length > 0 ? dbBalanceEntries.length : parsed.entries.length;
 
     // Dispatch real email only if there are entries parsed AND outstanding balance > 0
     // Skip email if file was unrecognized format (0 entries, 0 balance)
@@ -333,7 +342,7 @@ export async function POST(request: Request) {
             `Client Name          : ${client.name}`,
             `Client Code          : ${client.client_code}`,
             `Total Outstanding   : ${formatPaise(effectiveOutstandingPaise)}`,
-            `Total Statement Rows : ${parsed.entries.length}`,
+            `Total Statement Rows : ${dbEntryCount}`,
             `Status               : Outstanding Overdue Balance Detected`,
             `------------------------------------------------`,
             ``,

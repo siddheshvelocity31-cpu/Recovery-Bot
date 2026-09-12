@@ -4,6 +4,39 @@ import { naturalKey } from "@/lib/ledger/natural-key";
 import { validateLedgerRow } from "@/lib/validation/ledger-row";
 import { parseRupeesToPaise } from "@/lib/money";
 
+/**
+ * Safely extract a plain string from an ExcelJS cell value.
+ * Handles rich-text objects ({ richText: [...] }), formula results,
+ * and other non-primitive cell values that would otherwise
+ * stringify to "[object Object]".
+ */
+function cellToString(value: ExcelJS.CellValue): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value instanceof Date) return value.toISOString();
+  // ExcelJS rich-text: { richText: [{ text: "..." }, ...] }
+  if (typeof value === "object" && "richText" in value && Array.isArray((value as any).richText)) {
+    return ((value as any).richText as Array<{ text: string }>)
+      .map((seg) => seg.text ?? "")
+      .join("");
+  }
+  // ExcelJS formula result: { formula: "...", result: <value> }
+  if (typeof value === "object" && "result" in value) {
+    return cellToString((value as any).result);
+  }
+  // ExcelJS hyperlink: { text: "...", hyperlink: "..." }
+  if (typeof value === "object" && "text" in value) {
+    return String((value as any).text);
+  }
+  // ExcelJS error: { error: { ... } }
+  if (typeof value === "object" && "error" in value) {
+    return "";
+  }
+  // Fallback — avoid "[object Object]"
+  return "";
+}
+
 export interface ParsedLedger {
   client_code: string;
   client_name: string;
@@ -166,12 +199,12 @@ export async function parseLedgerWorkbook(buffer: Buffer): Promise<ParsedLedger>
     const docDateCell = docDateIdx ? row.getCell(docDateIdx)?.value : undefined;
 
     if (docCodeCell == null && docDateCell == null) continue;
-    const docCodeStr = docCodeCell != null ? String(docCodeCell).trim() : "";
+    const docCodeStr = docCodeCell != null ? cellToString(docCodeCell).trim() : "";
     if (!docCodeStr && docDateCell == null) continue;
 
     const entryDocDate = toLedgerDate(docDateCell);
 
-    const codeStr = codeIdx ? String(row.getCell(codeIdx)?.value ?? "").trim() : "";
+    const codeStr = codeIdx ? cellToString(row.getCell(codeIdx)?.value).trim() : "";
     const isOpening = docCodeStr.toUpperCase() === "B/F" || codeStr.toUpperCase() === "B/F" || docCodeStr.toUpperCase().includes("OPENING");
     const isTotal = docCodeStr.toUpperCase().includes("TOTAL") || codeStr.toUpperCase().includes("TOTAL");
 
@@ -183,8 +216,10 @@ export async function parseLedgerWorkbook(buffer: Buffer): Promise<ParsedLedger>
     if (debitIdx && creditIdx) {
       const debitVal = row.getCell(debitIdx)?.value;
       const creditVal = row.getCell(creditIdx)?.value;
-      const debitPaise = debitVal != null && String(debitVal).trim() !== "" ? parseRupeesToPaise(String(debitVal)) : 0n;
-      const creditPaise = creditVal != null && String(creditVal).trim() !== "" ? parseRupeesToPaise(String(creditVal)) : 0n;
+      const debitStr = cellToString(debitVal).trim();
+      const creditStr = cellToString(creditVal).trim();
+      const debitPaise = debitStr !== "" ? parseRupeesToPaise(debitStr) : 0n;
+      const creditPaise = creditStr !== "" ? parseRupeesToPaise(creditStr) : 0n;
 
       if ((debitPaise ?? 0n) > 0n) {
         paise = debitPaise;
@@ -194,11 +229,13 @@ export async function parseLedgerWorkbook(buffer: Buffer): Promise<ParsedLedger>
         isCredit = true;
       } else {
         const rawAmount = billAmountIdx ? row.getCell(billAmountIdx)?.value : undefined;
-        paise = rawAmount != null && String(rawAmount).trim() !== "" ? (parseRupeesToPaise(String(rawAmount)) ?? null) : null;
+        const rawStr = rawAmount != null ? cellToString(rawAmount).trim() : "";
+        paise = rawStr !== "" ? (parseRupeesToPaise(rawStr) ?? null) : null;
       }
     } else {
       const rawAmount = billAmountIdx ? row.getCell(billAmountIdx)?.value : undefined;
-      paise = rawAmount != null && String(rawAmount).trim() !== "" ? (parseRupeesToPaise(String(rawAmount)) ?? null) : null;
+      const rawStr = rawAmount != null ? cellToString(rawAmount).trim() : "";
+      paise = rawStr !== "" ? (parseRupeesToPaise(rawStr) ?? null) : null;
       if (paise !== null && paise < 0n) isCredit = true;
     }
 
@@ -207,8 +244,8 @@ export async function parseLedgerWorkbook(buffer: Buffer): Promise<ParsedLedger>
       continue;
     }
 
-    const narration = narrationIdx ? String(row.getCell(narrationIdx)?.value ?? "").trim() : null;
-    const paxName = paxIdx ? String(row.getCell(paxIdx)?.value ?? "").trim() : null;
+    const narration = narrationIdx ? cellToString(row.getCell(narrationIdx)?.value).trim() : null;
+    const paxName = paxIdx ? cellToString(row.getCell(paxIdx)?.value).trim() : null;
 
     entries.push({
       row_number: entries.length + 1,
