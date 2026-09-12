@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import { getAdminClient } from "@/lib/supabase/admin";
 import { writeEvent } from "@/lib/events/write";
@@ -20,7 +20,7 @@ export async function processInboundReply(params: ProcessInboundReplyParams) {
   const admin = getAdminClient() as any;
   const receivedAt = params.receivedAt ?? new Date();
 
-  // 1. If caseId not provided, locate active recovery_case
+  // 1. If caseId not provided, locate active recovery_case or create one
   let caseId = params.caseId;
   if (!caseId) {
     const { data: activeCase } = await admin
@@ -32,7 +32,24 @@ export async function processInboundReply(params: ProcessInboundReplyParams) {
       .limit(1)
       .maybeSingle();
 
-    caseId = activeCase?.id;
+    if (activeCase?.id) {
+      caseId = activeCase.id;
+    } else {
+      const { data: newCase, error: newCaseErr } = await admin
+        .from("recovery_case")
+        .insert({
+          client_id: params.clientId,
+          status: "open",
+          current_step_number: 0,
+          total_open_paise: 0,
+        })
+        .select("id")
+        .single();
+
+      if (!newCaseErr && newCase) {
+        caseId = newCase.id;
+      }
+    }
   }
 
   // 2. Insert into `reply` table
@@ -41,11 +58,9 @@ export async function processInboundReply(params: ProcessInboundReplyParams) {
     .insert({
       client_id: params.clientId,
       case_id: caseId ?? null,
-      contact_id: params.contactId ?? null,
       channel: params.channel,
-      body: params.bodyText,
+      raw_text: params.bodyText,
       provider_message_id: params.externalMessageId ?? null,
-      raw_payload: params.rawPayload ?? {},
       received_at: receivedAt.toISOString(),
     })
     .select("id")
@@ -88,6 +103,15 @@ export async function processInboundReply(params: ProcessInboundReplyParams) {
 
     if (commError) throw commError;
     commitmentId = commRow.id;
+
+    // Update recovery_case status to promise_active
+    await admin
+      .from("recovery_case")
+      .update({
+        status: "promise_active",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", caseId);
 
     // Write commitment event
     await writeEvent({

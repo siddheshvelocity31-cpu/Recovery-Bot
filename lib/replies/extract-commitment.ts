@@ -1,4 +1,4 @@
-﻿import { parseRupeesToPaise } from "@/lib/money";
+import { parseRupeesToPaise } from "@/lib/money";
 
 export interface ExtractedCommitment {
   has_commitment: boolean;
@@ -52,7 +52,7 @@ export function extractCommitmentFromText(
   let promisedDate: Date | null = null;
 
   const tomorrowMatch = normalized.match(/by tomorrow|tomorrow/i);
-  const inDaysMatch = normalized.match(/in (\d+) days?/i);
+  const inDaysMatch = normalized.match(/(?:in|after|within)\s+(\d+)\s+days?/i);
   const explicitDateMatch = normalized.match(
     /(?:by|on|before)?\s*(\d{1,2})(?:st|nd|rd|th)?\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+(\d{4}))?/i,
   );

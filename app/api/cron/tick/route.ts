@@ -49,7 +49,16 @@ async function runCronTick(request: Request): Promise<NextResponse> {
 
   await recordTick().catch(() => { /* non-fatal */ });
 
-  return NextResponse.json({ claimed: jobs.length, processed, failed });
+  // Automatically sync incoming Gmail replies
+  let gmailSyncResult = { processedCount: 0, errors: [] as string[] };
+  try {
+    const { syncGmailInboundReplies } = await import("@/lib/replies/gmail-sync");
+    gmailSyncResult = await syncGmailInboundReplies();
+  } catch (syncErr) {
+    console.error("Gmail sync error in cron tick:", syncErr);
+  }
+
+  return NextResponse.json({ claimed: jobs.length, processed, failed, gmailRepliesSynced: gmailSyncResult.processedCount });
 }
 
 // Vercel Cron sends GET requests — export GET as primary handler

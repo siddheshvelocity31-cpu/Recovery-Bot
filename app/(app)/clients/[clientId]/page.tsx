@@ -29,6 +29,7 @@ import {
   CircleDot,
   Clock,
   FileText,
+  HandCoins,
   Package,
   RadioTower,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -274,6 +275,9 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
       </div>
 
       <ClientFlagBanner clientId={clientId} />
+
+      {/* Promise to Pay Banner — shows active commitment if any */}
+      <PromiseToPayBanner clientId={clientId} />
 
       {/* Tab strip — glass */}
       <div className="mb-6 animate-fade-in">
@@ -575,5 +579,100 @@ async function NotificationsTab({ clientId }: { clientId: string }) {
     <SectionCard title="Notifications" icon={BellRing}>
       <NotificationsTable items={rows} />
     </SectionCard>
+  );
+}
+
+async function PromiseToPayBanner({ clientId }: { clientId: string }) {
+  const admin = getAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adminAny = admin as any;
+
+  // Find active commitments for this client via recovery_case
+  const { data: cases } = await adminAny
+    .from("recovery_case")
+    .select("id")
+    .eq("client_id", clientId)
+    .not("status", "in", '("resolved","suppressed")')
+    .order("created_at", { ascending: false })
+    .limit(5) as { data: Array<{ id: string }> | null };
+
+  if (!cases || cases.length === 0) return null;
+
+  const caseIds = cases.map((c) => c.id);
+  const { data: commitments } = await adminAny
+    .from("commitment")
+    .select("id, due_at, amount_paise, status, notes, created_at")
+    .in("case_id", caseIds)
+    .eq("status", "confirmed")
+    .order("created_at", { ascending: false })
+    .limit(3) as { data: Array<Record<string, unknown>> | null };
+
+  if (!commitments || commitments.length === 0) return null;
+
+  return (
+    <div className="mb-6 space-y-3 stagger-children">
+      {commitments.map((c) => {
+        const dueAt = c["due_at"]
+          ? new Date(String(c["due_at"])).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : null;
+        const amountPaise = c["amount_paise"] ? BigInt(String(c["amount_paise"])) : null;
+        const amountStr = amountPaise
+          ? `₹${(Number(amountPaise) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+          : null;
+        const notes = c["notes"] ? String(c["notes"]) : null;
+        const createdAt = c["created_at"]
+          ? new Date(String(c["created_at"])).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : null;
+
+        return (
+          <div
+            key={String(c["id"])}
+            className="glass-strong rounded-sm p-5 border-l-4 border-emerald-500 animate-slide-up bg-emerald-500/5"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-sm bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                <HandCoins size={20} className="text-success" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <h3 className="text-body font-semibold text-success">✅ Promise to Pay</h3>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-success border border-emerald-500/30 font-mono">
+                    Active
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 flex-wrap text-body-sm">
+                  {amountStr && (
+                    <span className="text-primary font-mono font-semibold">{amountStr}</span>
+                  )}
+                  {dueAt && (
+                    <span className="text-secondary">
+                      Due by: <span className="text-primary font-medium">{dueAt}</span>
+                    </span>
+                  )}
+                  {createdAt && (
+                    <span className="text-muted">Detected: {createdAt}</span>
+                  )}
+                </div>
+                {notes && (
+                  <p className="mt-2 text-body-sm text-secondary italic truncate max-w-xl">
+                    {notes}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

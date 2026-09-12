@@ -73,6 +73,34 @@ function PayloadSummary({ type, payload }: { type: string; payload: Record<strin
   if (type === "ledger.import_failed") {
     return <span className="text-mono-sm text-error">{String(payload["error"] ?? "Import failed")}</span>;
   }
+  if (type === "commitment.confirmed") {
+    const dueAt = payload["due_at"] ? new Date(String(payload["due_at"])).toLocaleDateString("en-IN", {
+      day: "2-digit", month: "short", year: "numeric",
+    }) : null;
+    const amountPaise = payload["amount_paise"] ? BigInt(String(payload["amount_paise"])) : null;
+    const amountStr = amountPaise ? `₹${(Number(amountPaise) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : null;
+    return (
+      <span className="text-mono-sm text-success font-medium">
+        ✅ Promise to Pay{amountStr ? ` ${amountStr}` : ""}{dueAt ? ` by ${dueAt}` : ""}
+      </span>
+    );
+  }
+  if (type === "commitment.broken") {
+    return (
+      <span className="text-mono-sm text-error font-medium">
+        ❌ Promise broken — payment not received by due date
+      </span>
+    );
+  }
+  if (type === "reply.received") {
+    const snippet = payload["body_snippet"] ? String(payload["body_snippet"]) : null;
+    const channel = payload["channel"] ? String(payload["channel"]) : null;
+    return (
+      <span className="text-mono-sm text-muted">
+        {channel ? `via ${channel}` : ""}{snippet ? ` — "${snippet.slice(0, 80)}${snippet.length > 80 ? "…" : ""}"` : ""}
+      </span>
+    );
+  }
   const keys = Object.keys(payload).filter((k) => k !== "id");
   if (keys.length === 0) return null;
   return (

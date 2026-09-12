@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { User, Mail, Phone, Edit2, X, CheckCircle2, AlertCircle, Loader2, Send } from "lucide-react";
+import { User, Mail, Phone, Edit2, X, CheckCircle2, AlertCircle, Loader2, Send, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cn";
+import { useRouter } from "next/navigation";
 
 interface Contact {
   id?: string;
@@ -25,8 +25,33 @@ export function EditContactModal({ clientId, initialContact }: EditContactModalP
   const [phone, setPhone] = useState(initialContact?.phone_e164 || "");
   const [saving, setSaving] = useState(false);
   const [sendingMail, setSendingMail] = useState(false);
+  const [checkingReply, setCheckingReply] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleCheckClientReply() {
+    setCheckingReply(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("/api/replies/sync");
+      const resJson = await res.json();
+      if (!res.ok) throw new Error(resJson.error || "Failed to check replies");
+
+      if (resJson.processedCount > 0) {
+        setSuccess(`New client reply detected! Payment promise tracked & case status updated to promise_active.`);
+      } else {
+        setSuccess(`Checked Gmail inbox — no new unread reply found from ${contact?.email || "client"}.`);
+      }
+      router.refresh();
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err: any) {
+      setError(err.message || "Failed to check email replies");
+    } finally {
+      setCheckingReply(false);
+    }
+  }
 
   async function handleSendTestEmail() {
     if (!contact?.email) return;
@@ -130,6 +155,16 @@ export function EditContactModal({ clientId, initialContact }: EditContactModalP
         </div>
 
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleCheckClientReply}
+            disabled={checkingReply}
+            className="gap-2 dark:bg-black dark:hover:bg-neutral-900 dark:border dark:border-white/20"
+          >
+            {checkingReply ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Check Client Reply Now
+          </Button>
           {contact?.email && (
             <Button
               variant="primary"
@@ -170,11 +205,11 @@ export function EditContactModal({ clientId, initialContact }: EditContactModalP
 
       {/* Modal Dialog */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-enter">
-          <div className="w-full max-w-md rounded-sm glass-strong border border-white/20 p-6 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-enter">
+          <div className="w-full max-w-md rounded-md bg-[#0d0e15] border border-white/20 p-6 shadow-2xl relative z-50 text-white">
             <button
               onClick={() => setIsOpen(false)}
-              className="absolute top-4 right-4 text-secondary hover:text-primary transition-colors"
+              className="absolute top-4 right-4 text-neutral-400 hover:text-white transition-colors"
             >
               <X size={18} />
             </button>

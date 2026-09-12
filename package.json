@@ -37,7 +37,9 @@
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
     "exceljs": "^4.4.0",
+    "imapflow": "^2.0.2",
     "lucide-react": "^1.37.0",
+    "mailparser": "^3.9.26",
     "mammoth": "^1.12.2",
     "next": "16.3.3",
     "nodemailer": "^10.0.3",
@@ -49,6 +51,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/mailparser": "^3.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
