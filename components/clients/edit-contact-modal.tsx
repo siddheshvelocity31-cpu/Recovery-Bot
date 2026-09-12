@@ -136,7 +136,7 @@ export function EditContactModal({ clientId, initialContact }: EditContactModalP
               size="sm"
               onClick={handleSendTestEmail}
               disabled={sendingMail}
-              className="gap-2"
+              className="gap-2 dark:bg-black dark:hover:bg-neutral-900 dark:border dark:border-white/20"
             >
               {sendingMail ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
               Send Reminder Email Now
